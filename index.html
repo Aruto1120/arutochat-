@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>あるとチャット</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background-color: #7494c0; display: flex; flex-direction: column; height: 100vh; }
+        .header { background-color: #24292e; color: white; padding: 15px; text-align: center; font-weight: bold; }
+        .chat-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; font-size: 14px; word-break: break-all; position: relative; }
+        .message.received { background-color: white; align-self: flex-start; border-top-left-radius: 0; padding-top: 22px; }
+        .message .name { position: absolute; top: 4px; left: 12px; font-size: 10px; color: #555; font-weight: bold; }
+        .input-area { background-color: white; padding: 10px; display: flex; gap: 10px; border-top: 1px solid #ddd; }
+        .input-area input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+        .input-area button { background-color: #24292e; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="header">あるとチャットルーム</div>
+    
+    <div class="chat-container" id="chatContainer">
+        <!-- メッセージがここにリアルタイムで表示されます -->
+    </div>
+    
+    <div class="input-area">
+        <input type="text" id="messageInput" placeholder="メッセージを入力...">
+        <button id="sendButton">送信</button>
+    </div>
+
+    <!-- Firebaseの機能を読み込む（エラーを修正しました） -->
+    <script type="module">
+        import { initializeApp } from "https://gstatic.com";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://gstatic.com";
+
+        // あなたのFirebase設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyBJwf8OCm9ISNRCqyW2OnSbHbdoeel7wR4",
+            authDomain: "arutochat-36c73.firebaseapp.com",
+            projectId: "arutochat-36c73",
+            storageBucket: "arutochat-36c73.firebasestorage.app",
+            messagingSenderId: "1034744493359",
+            appId: "1:1034744493359:web:70c3d4e4e633603c93ddda"
+        };
+
+        // Firebaseの初期化
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // ページを開いたときに名前を決定する（名前の設定機能）
+        let userName = prompt("チャットで使う名前を入力してください：");
+        if (!userName || userName.trim() === "") {
+            userName = "名無しさん";
+        }
+
+        const chatContainer = document.getElementById('chatContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        // 1. メッセージを送信してFirebaseに保存する
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (text === '') return;
+
+            try {
+                // 'messages' コレクションに名前(name)と本文(text)を保存
+                await addDoc(collection(db, "messages"), {
+                    name: userName,
+                    text: text,
+                    createdAt: serverTimestamp()
+                });
+                messageInput.value = '';
+            } catch (error) {
+                console.error("エラーが発生しました: ", error);
+            }
+        }
+
+        // 2. Firebaseからデータをリアルタイムに取得して画面に表示する
+        const q = query(collection(db, "messages"), orderBy("createdAt", "asc"));
+        onSnapshot(q, (snapshot) => {
+            chatContainer.innerHTML = ''; // 画面を一度リセット
+            
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message received';
+                
+                // 名前の表示を追加
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'name';
+                nameSpan.textContent = data.name || "名無しさん";
+                
+                // メッセージ本文の追加
+                const textNode = document.createTextNode(data.text);
+                
+                messageDiv.appendChild(nameSpan);
+                messageDiv.appendChild(textNode);
+                chatContainer.appendChild(messageDiv);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight; // 一番下までスクロール
+        });
+
+        // ボタンやエンターキーのイベント登録
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
